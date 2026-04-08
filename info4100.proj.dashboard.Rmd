@@ -1,6 +1,6 @@
 ---
 title: "Dashboards for Clicker Data"
-author: '[[Maryam Albakry, ma878]]'
+author: '[[Maryam Albakry (ma878), Rafael Barrios (reb368)]]'
 subtitle: INFO 4100 Learning Analytics
 output:
   word_document: default
