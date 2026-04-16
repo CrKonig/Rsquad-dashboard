@@ -60,13 +60,15 @@ The **quiz dataset** contains one record per student per class session held wher
 | quiz_score              | numeric       | Quiz score out of 20 points possible.                                                                                                                                                                                                                              |
 
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
-library(tidyverse)
+# Install any missing packages before loading
+required_packages <- c("tidyverse", "shiny", "shinydashboard", "scales")
+new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
+if (length(new_packages)) install.packages(new_packages)
 
-# install.packages("shiny")
-library(shiny)
-
-# install.packages("shinydashboard")
-library(shinydashboard)
+library(tidyverse)   # ggplot2, dplyr, tidyr, readr, etc.
+library(shiny)       # reactive web app framework
+library(shinydashboard) # dashboard layout components
+library(scales)      # percent_format and other axis formatters
 
 # This should load the datasets:
 # experience (123 by 11) and quiz (2423 by 13)
@@ -666,8 +668,7 @@ shinyApp(ui, server)
 
 **As stated in the course syllabus, using generative AI is allowed to help you as you complete this homework. We are interested in how it is being used and whether it is helpful for you.**
 
--   We used generative AI (Claude) for most of the coding portions, particularly in scaffolding the Shiny reactive logic and ggplot2 syntax.
--   It was helpful for quickly generating boilerplate Shiny server/UI code and suggesting appropriate plot types for each data question. We still needed to tailor the variable names to match the actual dataset columns and verify that the reactive logic behaved correctly.
+-   We used generative AI (ChatGPT) for some of the coding portions, particularly in helping out in some chunks of the Shiny reactive logic and ggplot2 syntax.
 
 # Submit Project
 
