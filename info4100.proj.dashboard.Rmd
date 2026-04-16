@@ -1,6 +1,6 @@
 ---
 title: "Dashboards for Clicker Data"
-author: '[[Maryam Albakry (ma878), Rafael Barrios (reb368), Abbie Goldstein (acg229)]]'
+author: '[[Maryam Albakry (ma878), Rafael Barrios (reb368), Abbie Goldstein (acg229), Tianyi Wang (tw324)]]'
 subtitle: INFO 4100 Learning Analytics
 output:
   word_document: default
@@ -454,34 +454,33 @@ server = function(input, output, session) {
       theme_cornell()
   })
 
-  # inst.plot3: GRAD vs UGRAD avg quiz score — lollipop chart
+  # inst.plot3: GRAD vs UGRAD avg quiz score — connected dot plot (numeric x)
   output$inst.plot3 = renderPlot({
-    ggplot(grad_ugrad_scores, aes(x = factor(QUIZ_NUMBER), y = avg_score, color = PROG, group = PROG)) +
-      geom_line(linewidth = 0.7, alpha = 0.5) +
+    ggplot(grad_ugrad_scores, aes(x = QUIZ_NUMBER, y = avg_score, color = PROG, group = PROG)) +
+      geom_line(linewidth = 0.8, alpha = 0.6) +
       geom_point(size = 4) +
       scale_color_manual(values = c(GRAD = cornell_red, UGRAD = cornell_blue),
                          labels = c(GRAD = "Graduate", UGRAD = "Undergraduate")) +
+      scale_x_continuous(breaks = 1:10) +
       scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 5)) +
       labs(x = "Quiz Number", y = "Average Score (out of 20)") +
       theme_cornell()
   })
 
-  # inst.plot4: Skill survey distribution — density + rug
+  # inst.plot4: Mean score per skill — horizontal bar (actionable: which skills do students lack?)
   output$inst.plot4 = renderPlot({
-    avg_skill <- mean(skill_dist$SKILL_SURVEY_SCORE, na.rm = TRUE)
-    ggplot(skill_dist, aes(x = SKILL_SURVEY_SCORE)) +
-      geom_histogram(aes(y = after_stat(density)), binwidth = 2,
-                     fill = cornell_navy, color = "white", alpha = 0.75) +
-      geom_density(color = cornell_red, linewidth = 1.1, adjust = 1.2) +
-      geom_rug(color = cornell_gray, alpha = 0.4, length = unit(0.03, "npc")) +
-      geom_vline(xintercept = avg_skill, linetype = "dashed",
-                 color = cornell_red, linewidth = 0.9) +
-      annotate("text", x = avg_skill + 0.5, y = Inf,
-               label = paste0("Mean: ", round(avg_skill, 1)),
-               hjust = 0, vjust = 1.5, color = cornell_red,
-               size = 3.5, fontface = "bold") +
-      labs(x = "Skill Survey Total Score (0–35)", y = "Density") +
-      theme_cornell()
+    ggplot(class_avg_skills, aes(x = class_avg, y = reorder(skill, class_avg))) +
+      geom_col(fill = cornell_navy, alpha = 0.80, width = 0.65) +
+      geom_text(aes(label = round(class_avg, 1)),
+                hjust = -0.2, color = cornell_dark, size = 3.5, fontface = "bold") +
+      geom_vline(xintercept = 2.5, linetype = "dashed",
+                 color = cornell_red, linewidth = 0.8) +
+      annotate("text", x = 2.6, y = 0.6, label = "Midpoint",
+               hjust = 0, color = cornell_red, size = 3, fontface = "bold") +
+      scale_x_continuous(limits = c(0, 5.5), breaks = 0:5) +
+      labs(x = "Class Average Score (0–5)", y = NULL) +
+      theme_cornell() +
+      theme(panel.grid.major.y = element_blank())
   })
 
   # ── STUDENT REACTIVE DATA ─────────────────────────────────────────────────
@@ -540,9 +539,9 @@ server = function(input, output, session) {
       left_join(stu_data, by = "QUIZ_NUMBER")
 
     ggplot(plot_data, aes(x = QUIZ_NUMBER)) +
-      geom_ribbon(aes(ymin = pmin(my_score, class_avg),
-                      ymax = pmax(my_score, class_avg)),
-                  fill = cornell_red, alpha = 0.08, na.rm = TRUE) +
+      geom_ribbon(aes(ymin = pmin(my_score, class_avg, na.rm = TRUE),
+                      ymax = pmax(my_score, class_avg, na.rm = TRUE)),
+                  fill = cornell_gray, alpha = 0.18, na.rm = TRUE) +
       geom_line(aes(y = class_avg, color = "Class Average"),
                 linewidth = 1.0, linetype = "dashed") +
       geom_line(aes(y = my_score, color = "My Score"),
@@ -564,7 +563,7 @@ server = function(input, output, session) {
       mutate(completion_rate = TOTAL_COMPLETED_CLICKER / TOTAL_POSSIBLE_CLICKER) %>%
       select(SESSION_NUMBER, completion_rate) %>%
       left_join(class_avg_clicker, by = "SESSION_NUMBER") %>%
-      mutate(above_avg = completion_rate >= class_completion)
+      mutate(above_avg = as.character(completion_rate >= class_completion))
 
     ggplot(stu_comp, aes(x = SESSION_NUMBER)) +
       geom_col(aes(y = completion_rate,
