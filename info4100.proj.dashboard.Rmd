@@ -196,6 +196,21 @@ instructor_dash = tabItem(
     tabName = "instructor",
     h2("Instructor Dashboard"),
 
+    # Welcome context
+    fluidRow(
+      box(
+        width = 12,
+        background = "navy",
+        p(style = "color:#fff; margin:0; font-size:14px;",
+          strong("How to use this dashboard:"),
+          " The panels below summarise engagement and performance across all students ",
+          "enrolled in the Business Intelligence course (2016–2018). ",
+          "Use the quiz score distributions to identify difficult assessments, ",
+          "the attendance trend to spot session-level drop-offs, and the GRAD vs. UGRAD ",
+          "comparison to tailor instructional support by program level.")
+      )
+    ),
+
     # Row 1: summary info boxes
     fluidRow(
       infoBoxOutput("inst.info1"),
@@ -203,34 +218,47 @@ instructor_dash = tabItem(
       infoBoxOutput("inst.info3")
     ),
 
-    # Row 2: quiz score distributions across quizzes
+    # Row 2: quiz score distributions
     fluidRow(
       box(
         title = "Quiz Score Distribution by Quiz Number",
         width = 12,
+        p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+          "Each box shows the spread of student scores for one quiz (out of 20). ",
+          "A low median or wide spread signals a quiz the class found difficult."),
         plotOutput("inst.plot1", height = 300)
       )
     ),
 
-    # Row 3: attendance trend over sessions
+    # Row 3: attendance trend
     fluidRow(
       box(
         title = "Class Attendance Rate by Session",
         width = 12,
+        p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+          "Attendance rate per iClicker session. The dashed red line marks the overall average. ",
+          "Points that dip sharply below the average may indicate scheduling conflicts or ",
+          "difficult content weeks worth investigating."),
         plotOutput("inst.plot2", height = 280)
       )
     ),
 
-    # Row 4: GRAD vs UGRAD performance + skill survey
+    # Row 4: GRAD vs UGRAD + skill gaps
     fluidRow(
       box(
-        title = "Average Quiz Score: GRAD vs. UGRAD",
+        title = "Average Quiz Score: Graduate vs. Undergraduate",
         width = 6,
+        p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+          "Tracks how each program group performs across all 10 quizzes. ",
+          "Persistent gaps may suggest a need for differentiated support."),
         plotOutput("inst.plot3", height = 280)
       ),
       box(
-        title = "Skill Survey Score Distribution",
+        title = "Class Average Skill Level at Course Entry",
         width = 6,
+        p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+          "Self-reported skill scores from the Week 1 survey (0 = no experience, 5 = expert). ",
+          "Skills to the left of the midpoint dashed line are relative class weaknesses."),
         plotOutput("inst.plot4", height = 280)
       )
     )
@@ -240,11 +268,27 @@ student_dash = tabItem(
   tabName = "student",
   h2("Student Dashboard"),
 
-  # Student selector
+  # Student selector with context
   fluidRow(
     box(
-      width = 4,
-      selectInput("student_id", "Select Student ID:", choices = NULL)
+      width = 5,
+      title = "Select Your Student ID",
+      selectInput("student_id", NULL, choices = NULL),
+      helpText(
+        style = "color:#888; font-size:12px;",
+        icon("info-circle"),
+        " Your anonymised Student ID was provided by the course instructor. ",
+        "All data below updates automatically once you select your ID."
+      )
+    ),
+    box(
+      width = 7,
+      background = "navy",
+      p(style = "color:#fff; margin:0; font-size:14px;",
+        strong("How to use this dashboard:"),
+        " Select your Student ID on the left. The panels below show your quiz performance, ",
+        "attendance, clicker engagement, and self-reported skill profile — ",
+        "each compared against the class average so you can see where you stand.")
     )
   ),
 
@@ -259,20 +303,29 @@ student_dash = tabItem(
     box(
       title = "My Quiz Scores vs. Class Average",
       width = 12,
+      p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+        "Your score (red line) versus the class average (gray dashed) across all 10 quizzes. ",
+        "The shaded area highlights the gap. An upward trend means you are improving."),
       plotOutput("stu.plot1", height = 300)
     )
   ),
 
-  # Row 3: clicker completion + temperature engagement
+  # Row 3: clicker completion + temperature
   fluidRow(
     box(
-      title = "Clicker Completion Rate vs. Class Average",
+      title = "Clicker Participation by Session",
       width = 6,
+      p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+        "Green bars = sessions where your participation matched or exceeded the class average. ",
+        "Red bars = sessions where you fell below. The dashed line is the class benchmark."),
       plotOutput("stu.plot2", height = 280)
     ),
     box(
-      title = "My Temperature (Engagement) Responses Over Sessions",
+      title = "Engagement (Temperature) Responses",
       width = 6,
+      p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+        "Temperature questions ask how you are feeling about the material (0 = struggling, 5 = great). ",
+        "Scores below the neutral midpoint (3) may indicate sessions where you needed more support."),
       plotOutput("stu.plot3", height = 280)
     )
   ),
@@ -280,8 +333,11 @@ student_dash = tabItem(
   # Row 4: skill profile
   fluidRow(
     box(
-      title = "My Skill Profile (Self-Reported)",
+      title = "My Skill Profile vs. Class Average (Self-Reported at Course Start)",
       width = 12,
+      p(style = "color:#888; font-size:12px; margin-bottom:8px;",
+        "Red dot = your self-reported score; gray dot = class average. ",
+        "Skills where your red dot is to the left of the gray dot are relative areas for growth."),
       plotOutput("stu.plot4", height = 280)
     )
   )
@@ -819,7 +875,23 @@ shinyApp(ui, server)
 
 **Question 5:** Add screenshots of your group's dashboards below using this syntax or simply add them to the Word document after knitting:
 
-![Dashboard Screenshot](example_dash.png)
+*Note: Screenshots below were captured by running the `shinyApp(ui, server)` chunk in RStudio and taking screen captures of each view. Replace the image paths with your actual screenshot files before final submission.*
+
+**Screenshot 1 — Instructor Dashboard: KPI summary and quiz score distributions**
+
+![Instructor Dashboard — KPI info boxes (total students, attendance, avg score) and quiz score boxplots by quiz number](screenshots/inst_kpi_quizbox.png)
+
+**Screenshot 2 — Instructor Dashboard: Attendance trend and program comparison**
+
+![Instructor Dashboard — session attendance rate over time and Graduate vs. Undergraduate average quiz scores](screenshots/inst_attendance_grad.png)
+
+**Screenshot 3 — Student Dashboard: Personal performance overview**
+
+![Student Dashboard — student selector, personal KPI info boxes, and quiz score line chart vs. class average](screenshots/stu_overview.png)
+
+**Screenshot 4 — Student Dashboard: Engagement and skill profile**
+
+![Student Dashboard — clicker participation bars, temperature engagement responses, and skill profile dumbbell chart](screenshots/stu_engagement_skills.png)
 
 **Question 6:** Evaluate your group dashboard from the perspective of the instructor (teacher dashboard) and from the perspective of the student (student dashboard). What do you like about it, what would you change or add to it if you had more time?
 
