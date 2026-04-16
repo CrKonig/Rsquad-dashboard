@@ -62,18 +62,19 @@ The **quiz dataset** contains one record per student per class session held wher
 ```{r warning=FALSE, message=FALSE, echo=FALSE}
 library(tidyverse)
 
-# Below you are loading 2 new packages:shiny + shinydashboard.
-# Install them once, then comment out the install command.
-
 # install.packages("shiny")
 library(shiny)
 
 # install.packages("shinydashboard")
 library(shinydashboard)
 
-# This should load the datasets: 
+# This should load the datasets:
 # experience (123 by 11) and quiz (2423 by 13)
 load("info4100.proj.dashboard.rda")
+
+# Normalize column names to uppercase for consistency
+names(quiz)       <- toupper(names(quiz))
+names(experience) <- toupper(names(experience))
 ```
 
 # Part 1: Planning / Sketching
@@ -85,36 +86,66 @@ Go through the planning / sketching process described in the reading about dashb
 *Planning for the student dashboard*
 
 -   For whom? Who will use it and what is their background?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   Individual students enrolled in the BI course (both graduate and undergraduate), who range from little to moderate technical experience.
+    -   Students are familiar with their own quiz grades but may not know how they compare to classmates or how their attendance relates to performance.
 -   Why? What is the goal? What questions to answer?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   Help each student understand their personal engagement (attendance, clicker participation) and performance (quiz scores) over the semester.
+    -   Answer: "How are my quiz scores trending?", "How does my attendance compare to the class?", "How engaged am I relative to my peers?"
 -   What? What data to show and what is its structure?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   Quiz scores per quiz number (one row per student-session in quiz dataset, joined to experience for skill info).
+    -   Attendance rate across sessions, clicker completion rate, average temperature responses, and self-reported skill scores.
 -   How? How will visualizations support the goal?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   A line chart overlays the selected student's quiz scores against class averages so progress is immediately visible.
+    -   Bar charts show attendance and clicker engagement side-by-side with class benchmarks for easy self-assessment.
 
 *Planning for the teacher dashboard*
 
 -   For whom? Who will use it and what is their background?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   The course instructor, who is familiar with the course content and comfortable reading quantitative summaries but may not have time for deep data analysis.
+    -   The instructor wants a high-level overview with the ability to spot struggling students or session-level problems quickly.
 -   Why? What is the goal? What questions to answer?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   Provide a class-wide view of attendance, engagement, and performance to support timely instructional decisions.
+    -   Answer: "Is attendance dropping?", "Which quiz did students struggle with?", "Do grad vs. undergrad students perform differently?"
 -   What? What data to show and what is its structure?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   Aggregate quiz scores per quiz number, attendance per session, clicker engagement rates, and skill survey distributions broken out by program (GRAD/UGRAD).
 -   How? How will visualizations support the goal?
-    -   [add your answer here]
-    -   [add your answer here]
+    -   A boxplot per quiz number reveals score distributions and outliers at a glance.
+    -   A line chart of session-level attendance makes declining engagement obvious over time.
+    -   A grouped bar chart compares GRAD vs. UGRAD average performance on each quiz.
 
 **Question 2:** Based on your plan above, make a sketch of what the dashboard would look like. See this week's readings for examples. Be detailed about what kinds of data points and visualizations you want to see in different parts of the page. Consider the user experience and how you should position more general information compared to more specific information, and where you may need some additional explanation to help the viewer understand a graphic, for example. In your sketch, it is useful to give labels to different objects, because in the steps below you can split up work between team members and the labels will help you connect the UI with the data objects. Show your sketches in section to get feedback from the teaching team.
 
 Each dashboard should contain at least 4 data visualizations. You may include any additional summary statistics (e.g. key percentages or tables).
+
+*Instructor Dashboard Sketch:*
+
+```
++----------------------------------------------------------+
+|  [inst.info1] Total Students  |  [inst.info2] Avg Attend |  [inst.info3] Avg Quiz Score
++----------------------------------------------------------+
+|  [inst.plot1] Quiz Score Distributions (boxplot by quiz) |
++----------------------------------------------------------+
+|  [inst.plot2] Attendance by Session (line over sessions) |
++----------------------------------------------------------+
+|  [inst.plot3] GRAD vs UGRAD Avg Quiz Score (grouped bar) |  [inst.plot4] Skill Survey Distribution (bar)
++----------------------------------------------------------+
+```
+
+*Student Dashboard Sketch:*
+
+```
++----------------------------------------------------------+
+|  [Student selector dropdown]                             |
++----------------------------------------------------------+
+|  [stu.info1] My Avg Quiz Score vs Class  |  [stu.info2] My Attendance Rate
++----------------------------------------------------------+
+|  [stu.plot1] My Quiz Scores vs Class Avg (line)          |
++----------------------------------------------------------+
+|  [stu.plot2] My Clicker Completion vs Class (bar)        |  [stu.plot3] My Temp Responses (line)
++----------------------------------------------------------+
+|  [stu.plot4] My Skill Profile (bar)                      |
++----------------------------------------------------------+
+```
 
 # Part 2: Dashboard Wire-frame Implementation
 
@@ -128,33 +159,100 @@ Your team can split up the tasks. Some work on creating the UI (this part), whil
 #######################################
 ####### BEGIN INPUT: Question 3 #######
 #######################################
-# Example of a tab (i.e. page)
+
 instructor_dash = tabItem(
     tabName = "instructor",
     h2("Instructor Dashboard"),
-    
-    # Dynamic infoBoxes
+
+    # Row 1: summary info boxes
     fluidRow(
       infoBoxOutput("inst.info1"),
-      infoBoxOutput("inst.info2")
+      infoBoxOutput("inst.info2"),
+      infoBoxOutput("inst.info3")
     ),
-    # Any visualization
+
+    # Row 2: quiz score distributions across quizzes
     fluidRow(
-        box(
-            title = "Box 1",
-            plotOutput("inst.plot1", height = 250)
-        ),
-        box(
-            title = "Box 2",
-            plotOutput("inst.plot2", height = 250)
-        )
+      box(
+        title = "Quiz Score Distribution by Quiz Number",
+        width = 12,
+        plotOutput("inst.plot1", height = 300)
+      )
+    ),
+
+    # Row 3: attendance trend over sessions
+    fluidRow(
+      box(
+        title = "Class Attendance Rate by Session",
+        width = 12,
+        plotOutput("inst.plot2", height = 280)
+      )
+    ),
+
+    # Row 4: GRAD vs UGRAD performance + skill survey
+    fluidRow(
+      box(
+        title = "Average Quiz Score: GRAD vs. UGRAD",
+        width = 6,
+        plotOutput("inst.plot3", height = 280)
+      ),
+      box(
+        title = "Skill Survey Score Distribution",
+        width = 6,
+        plotOutput("inst.plot4", height = 280)
+      )
     )
 )
 
-# Another empty tab
 student_dash = tabItem(
   tabName = "student",
-  h2("Student Dashboard")
+  h2("Student Dashboard"),
+
+  # Student selector
+  fluidRow(
+    box(
+      width = 4,
+      selectInput("student_id", "Select Student ID:", choices = NULL)
+    )
+  ),
+
+  # Row 1: personal summary info boxes
+  fluidRow(
+    infoBoxOutput("stu.info1"),
+    infoBoxOutput("stu.info2")
+  ),
+
+  # Row 2: quiz score trend vs class
+  fluidRow(
+    box(
+      title = "My Quiz Scores vs. Class Average",
+      width = 12,
+      plotOutput("stu.plot1", height = 300)
+    )
+  ),
+
+  # Row 3: clicker completion + temperature engagement
+  fluidRow(
+    box(
+      title = "Clicker Completion Rate vs. Class Average",
+      width = 6,
+      plotOutput("stu.plot2", height = 280)
+    ),
+    box(
+      title = "My Temperature (Engagement) Responses Over Sessions",
+      width = 6,
+      plotOutput("stu.plot3", height = 280)
+    )
+  ),
+
+  # Row 4: skill profile
+  fluidRow(
+    box(
+      title = "My Skill Profile (Self-Reported)",
+      width = 12,
+      plotOutput("stu.plot4", height = 280)
+    )
+  )
 )
 
 #######################################
@@ -174,7 +272,65 @@ Use the space below to be ready for your information visualizations in the dashb
 ####### BEGIN INPUT             #######
 #######################################
 
+# ── Instructor-level aggregations ──────────────────────────────────────────
 
+# Average class attendance rate per session (for line chart)
+session_attendance <- quiz %>%
+  group_by(SESSION_NUMBER) %>%
+  summarise(attend_rate = mean(ATTENDED, na.rm = TRUE), .groups = "drop")
+
+# Quiz score distributions — one row per student-quiz (take first occurrence per student/quiz)
+quiz_scores_by_quiz <- quiz %>%
+  filter(!is.na(QUIZ_SCORE)) %>%
+  distinct(STUDENT_KEY, QUIZ_NUMBER, .keep_all = TRUE)
+
+# Average quiz score by GRAD/UGRAD per quiz
+grad_ugrad_scores <- quiz %>%
+  filter(!is.na(QUIZ_SCORE)) %>%
+  distinct(STUDENT_KEY, QUIZ_NUMBER, .keep_all = TRUE) %>%
+  left_join(experience %>% select(STUDENT_KEY, PROG), by = "STUDENT_KEY") %>%
+  filter(!is.na(PROG)) %>%
+  group_by(QUIZ_NUMBER, PROG) %>%
+  summarise(avg_score = mean(QUIZ_SCORE, na.rm = TRUE), .groups = "drop")
+
+# Skill survey score distribution (one row per student)
+skill_dist <- experience %>%
+  select(STUDENT_KEY, SKILL_SURVEY_SCORE) %>%
+  filter(!is.na(SKILL_SURVEY_SCORE))
+
+# ── Class-level benchmarks for student dashboard ───────────────────────────
+
+# Class average quiz score per quiz number
+class_avg_quiz <- quiz %>%
+  filter(!is.na(QUIZ_SCORE)) %>%
+  distinct(STUDENT_KEY, QUIZ_NUMBER, .keep_all = TRUE) %>%
+  group_by(QUIZ_NUMBER) %>%
+  summarise(class_avg = mean(QUIZ_SCORE, na.rm = TRUE), .groups = "drop")
+
+# Class average clicker completion rate per session
+class_avg_clicker <- quiz %>%
+  mutate(completion_rate = ifelse(TOTAL_POSSIBLE_CLICKER > 0,
+                                  TOTAL_COMPLETED_CLICKER / TOTAL_POSSIBLE_CLICKER,
+                                  NA_real_)) %>%
+  group_by(SESSION_NUMBER) %>%
+  summarise(class_completion = mean(completion_rate, na.rm = TRUE), .groups = "drop")
+
+# Class average skill scores (for comparison in student profile)
+skill_cols <- c("DATABASE_SCORE","SQL_SCORE","PROGRAMING_SCORE",
+                "STORED_PROC_SCORE","ETL_SCORE","DATA_VIS_SCORE","REQUIREMENT_GATHER_SCORE")
+
+class_avg_skills <- experience %>%
+  summarise(across(all_of(skill_cols), ~ mean(.x, na.rm = TRUE))) %>%
+  pivot_longer(everything(), names_to = "skill", values_to = "class_avg") %>%
+  mutate(skill = recode(skill,
+    DATABASE_SCORE = "Database",
+    SQL_SCORE = "SQL",
+    PROGRAMING_SCORE = "Programming",
+    STORED_PROC_SCORE = "Stored Proc",
+    ETL_SCORE = "ETL",
+    DATA_VIS_SCORE = "Data Vis",
+    REQUIREMENT_GATHER_SCORE = "Req. Gathering"
+  ))
 
 #######################################
 #######################################
@@ -187,52 +343,260 @@ This is where you create the content for the wire frames you created above. Agai
 **Question 4:** For each of the pieces of content you planned for in the wire frames above, generate the relevant content. You need to assign them all to the `output` variable by referencing the name of the wire frame element you chose above like this `output$name.of.element`.
 
 ```{r}
-server = function(input, output) {
-    
+server = function(input, output, session) {
+
 #######################################
 ####### BEGIN INPUT: Question 4 #######
 #######################################
-    
-    output$inst.info1 = renderInfoBox({
-        infoBox("Students total", 
-                length(unique(quiz$STUDENT_KEY)), 
-                icon = icon("list"), color = "purple")
-    })
-    
-    output$inst.info2 = renderInfoBox({
-        infoBox("Attendance",
-                paste0(round(100 * mean(quiz$ATTENDED)), "%"), 
-                icon = icon("list"), color = "yellow")
-    })
-    
-    output$inst.plot1 = renderPlot({
-        hist(quiz$QUIZ_SCORE)
-    })
-    
-    output$inst.plot2 = renderPlot({
-        # I'm giving you three examples here
-        # only the last one will be displayed
-        # but you can try out each one.
-        # As you can see, using ggplot allows you to 
-        # make much better-looking visualizations.
-      
-        # simple
-        hist(quiz$TOTAL_COMPLETED_CLICKER) 
-      
-        # using ggplot
-        ggplot(quiz, aes(TOTAL_COMPLETED_CLICKER)) + 
-          geom_histogram()
-        
-        # using ggplot to make it clearer
-        ggplot(quiz, aes(x = TOTAL_COMPLETED_CLICKER)) + 
-          geom_density(fill="gray") + # makes the density line and gray fill
-          labs(x = "Completed Clicker Questions", y = "Density") + # change axis labels
-          theme_classic() # to use white background
-    })
-    
+
+  # Populate student selector with all unique student IDs
+  observe({
+    ids <- sort(unique(quiz$STUDENT_KEY))
+    updateSelectInput(session, "student_id", choices = ids, selected = ids[1])
+  })
+
+  # ── INSTRUCTOR INFO BOXES ──────────────────────────────────────────────────
+
+  output$inst.info1 = renderInfoBox({
+    infoBox("Total Students",
+            length(unique(quiz$STUDENT_KEY)),
+            icon = icon("users"), color = "purple")
+  })
+
+  output$inst.info2 = renderInfoBox({
+    infoBox("Avg Attendance",
+            paste0(round(100 * mean(quiz$ATTENDED, na.rm = TRUE)), "%"),
+            icon = icon("calendar-check"), color = "blue")
+  })
+
+  output$inst.info3 = renderInfoBox({
+    avg_score <- quiz %>%
+      filter(!is.na(QUIZ_SCORE)) %>%
+      distinct(STUDENT_KEY, QUIZ_NUMBER, .keep_all = TRUE) %>%
+      summarise(m = mean(QUIZ_SCORE, na.rm = TRUE)) %>%
+      pull(m)
+    infoBox("Avg Quiz Score",
+            paste0(round(avg_score, 1), " / 20"),
+            icon = icon("graduation-cap"), color = "green")
+  })
+
+  # ── INSTRUCTOR PLOTS ───────────────────────────────────────────────────────
+
+  # inst.plot1: Boxplot of quiz scores by quiz number
+  output$inst.plot1 = renderPlot({
+    ggplot(quiz_scores_by_quiz, aes(x = factor(QUIZ_NUMBER), y = QUIZ_SCORE)) +
+      geom_boxplot(fill = "#7B68EE", alpha = 0.7, outlier.colour = "red", outlier.alpha = 0.5) +
+      stat_summary(fun = mean, geom = "point", shape = 18, size = 3, color = "white") +
+      labs(x = "Quiz Number", y = "Score (out of 20)",
+           caption = "White diamond = class mean; red points = outliers") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 12),
+            axis.title = element_text(size = 13))
+  })
+
+  # inst.plot2: Attendance rate per session (line chart)
+  output$inst.plot2 = renderPlot({
+    ggplot(session_attendance, aes(x = SESSION_NUMBER, y = attend_rate)) +
+      geom_line(color = "#4682B4", linewidth = 1.2) +
+      geom_point(color = "#4682B4", size = 2.5) +
+      geom_hline(yintercept = mean(session_attendance$attend_rate),
+                 linetype = "dashed", color = "gray50") +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
+      labs(x = "Session Number", y = "Attendance Rate",
+           caption = "Dashed line = overall average") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 12),
+            axis.title = element_text(size = 13))
+  })
+
+  # inst.plot3: Grouped bar — GRAD vs UGRAD avg quiz score per quiz
+  output$inst.plot3 = renderPlot({
+    ggplot(grad_ugrad_scores, aes(x = factor(QUIZ_NUMBER), y = avg_score, fill = PROG)) +
+      geom_col(position = "dodge", alpha = 0.85) +
+      scale_fill_manual(values = c(GRAD = "#E87722", UGRAD = "#006EB6"),
+                        name = "Program") +
+      labs(x = "Quiz Number", y = "Average Score (out of 20)") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 11),
+            axis.title = element_text(size = 12),
+            legend.position = "bottom")
+  })
+
+  # inst.plot4: Skill survey score distribution (histogram)
+  output$inst.plot4 = renderPlot({
+    ggplot(skill_dist, aes(x = SKILL_SURVEY_SCORE)) +
+      geom_histogram(binwidth = 2, fill = "#6AAC3A", color = "white", alpha = 0.85) +
+      geom_vline(xintercept = mean(skill_dist$SKILL_SURVEY_SCORE, na.rm = TRUE),
+                 linetype = "dashed", color = "darkgreen", linewidth = 1) +
+      labs(x = "Skill Survey Total Score", y = "Number of Students",
+           caption = "Dashed line = class mean") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 11),
+            axis.title = element_text(size = 12))
+  })
+
+  # ── STUDENT REACTIVE DATA ─────────────────────────────────────────────────
+
+  stu_quiz <- reactive({
+    req(input$student_id)
+    quiz %>%
+      filter(STUDENT_KEY == as.numeric(input$student_id),
+             !is.na(QUIZ_SCORE)) %>%
+      distinct(QUIZ_NUMBER, .keep_all = TRUE)
+  })
+
+  stu_sessions <- reactive({
+    req(input$student_id)
+    quiz %>%
+      filter(STUDENT_KEY == as.numeric(input$student_id))
+  })
+
+  stu_exp <- reactive({
+    req(input$student_id)
+    experience %>%
+      filter(STUDENT_KEY == as.numeric(input$student_id))
+  })
+
+  # ── STUDENT INFO BOXES ─────────────────────────────────────────────────────
+
+  output$stu.info1 = renderInfoBox({
+    my_avg  <- mean(stu_quiz()$QUIZ_SCORE, na.rm = TRUE)
+    cl_avg  <- mean(quiz$QUIZ_SCORE, na.rm = TRUE)
+    delta   <- round(my_avg - cl_avg, 1)
+    sign_str <- ifelse(delta >= 0, paste0("+", delta), as.character(delta))
+    infoBox("My Avg Quiz Score",
+            paste0(round(my_avg, 1), " / 20  (", sign_str, " vs class)"),
+            icon = icon("star"), color = ifelse(delta >= 0, "green", "red"))
+  })
+
+  output$stu.info2 = renderInfoBox({
+    my_att  <- mean(stu_sessions()$ATTENDED, na.rm = TRUE)
+    cl_att  <- mean(quiz$ATTENDED, na.rm = TRUE)
+    delta   <- round((my_att - cl_att) * 100, 1)
+    sign_str <- ifelse(delta >= 0, paste0("+", delta, "%"), paste0(delta, "%"))
+    infoBox("My Attendance Rate",
+            paste0(round(my_att * 100), "%  (", sign_str, " vs class)"),
+            icon = icon("calendar"), color = ifelse(delta >= 0, "green", "yellow"))
+  })
+
+  # ── STUDENT PLOTS ──────────────────────────────────────────────────────────
+
+  # stu.plot1: Student quiz scores vs class average per quiz (line)
+  output$stu.plot1 = renderPlot({
+    stu_data <- stu_quiz() %>%
+      select(QUIZ_NUMBER, QUIZ_SCORE) %>%
+      rename(my_score = QUIZ_SCORE)
+
+    plot_data <- class_avg_quiz %>%
+      left_join(stu_data, by = "QUIZ_NUMBER")
+
+    ggplot(plot_data, aes(x = QUIZ_NUMBER)) +
+      geom_line(aes(y = class_avg, color = "Class Average"), linewidth = 1.1, linetype = "dashed") +
+      geom_line(aes(y = my_score, color = "My Score"), linewidth = 1.3, na.rm = TRUE) +
+      geom_point(aes(y = my_score, color = "My Score"), size = 3, na.rm = TRUE) +
+      geom_point(aes(y = class_avg, color = "Class Average"), size = 2.5) +
+      scale_color_manual(values = c("My Score" = "#E87722", "Class Average" = "#4682B4"),
+                         name = NULL) +
+      scale_x_continuous(breaks = 1:10) +
+      labs(x = "Quiz Number", y = "Score (out of 20)") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 12),
+            axis.title = element_text(size = 13),
+            legend.position = "bottom")
+  })
+
+  # stu.plot2: Clicker completion rate per session vs class avg (bar + line)
+  output$stu.plot2 = renderPlot({
+    stu_comp <- stu_sessions() %>%
+      mutate(completion_rate = ifelse(TOTAL_POSSIBLE_CLICKER > 0,
+                                      TOTAL_COMPLETED_CLICKER / TOTAL_POSSIBLE_CLICKER,
+                                      NA_real_)) %>%
+      select(SESSION_NUMBER, completion_rate) %>%
+      left_join(class_avg_clicker, by = "SESSION_NUMBER")
+
+    ggplot(stu_comp, aes(x = SESSION_NUMBER)) +
+      geom_col(aes(y = completion_rate, fill = "My Rate"), alpha = 0.75, na.rm = TRUE) +
+      geom_line(aes(y = class_completion, color = "Class Avg"),
+                linewidth = 1.2, linetype = "dashed") +
+      scale_fill_manual(values = c("My Rate" = "#E87722"), name = NULL) +
+      scale_color_manual(values = c("Class Avg" = "#4682B4"), name = NULL) +
+      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1.05)) +
+      labs(x = "Session Number", y = "Clicker Completion Rate") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 11),
+            axis.title = element_text(size = 12),
+            legend.position = "bottom")
+  })
+
+  # stu.plot3: Student temperature responses over sessions
+  output$stu.plot3 = renderPlot({
+    temp_data <- stu_sessions() %>%
+      filter(!is.na(AVG_T_CLICKER), COMPLETED_T_CLICKER > 0)
+
+    if (nrow(temp_data) == 0) {
+      return(
+        ggplot() +
+          annotate("text", x = 0.5, y = 0.5, label = "No temperature data for this student.",
+                   size = 5) +
+          theme_void()
+      )
+    }
+
+    ggplot(temp_data, aes(x = SESSION_NUMBER, y = AVG_T_CLICKER)) +
+      geom_line(color = "#9B59B6", linewidth = 1.2) +
+      geom_point(color = "#9B59B6", size = 3) +
+      geom_hline(yintercept = 3, linetype = "dashed", color = "gray50") +
+      scale_y_continuous(limits = c(0, 5), breaks = 0:5) +
+      labs(x = "Session Number", y = "Avg Temperature Response (0–5)",
+           caption = "Dashed line = neutral midpoint (3)") +
+      theme_classic() +
+      theme(axis.text = element_text(size = 11),
+            axis.title = element_text(size = 12))
+  })
+
+  # stu.plot4: Student skill profile vs class average (grouped bar)
+  output$stu.plot4 = renderPlot({
+    exp_row <- stu_exp()
+
+    if (nrow(exp_row) == 0 || all(is.na(exp_row[, skill_cols]))) {
+      return(
+        ggplot() +
+          annotate("text", x = 0.5, y = 0.5,
+                   label = "No skill survey data for this student.", size = 5) +
+          theme_void()
+      )
+    }
+
+    stu_skills <- exp_row %>%
+      select(all_of(skill_cols)) %>%
+      pivot_longer(everything(), names_to = "skill", values_to = "my_score") %>%
+      mutate(skill = recode(skill,
+        DATABASE_SCORE = "Database",
+        SQL_SCORE = "SQL",
+        PROGRAMING_SCORE = "Programming",
+        STORED_PROC_SCORE = "Stored Proc",
+        ETL_SCORE = "ETL",
+        DATA_VIS_SCORE = "Data Vis",
+        REQUIREMENT_GATHER_SCORE = "Req. Gathering"
+      )) %>%
+      left_join(class_avg_skills, by = "skill") %>%
+      pivot_longer(c(my_score, class_avg), names_to = "who", values_to = "score") %>%
+      mutate(who = recode(who, my_score = "Me", class_avg = "Class Avg"))
+
+    ggplot(stu_skills, aes(x = skill, y = score, fill = who)) +
+      geom_col(position = "dodge", alpha = 0.85, na.rm = TRUE) +
+      scale_fill_manual(values = c("Me" = "#E87722", "Class Avg" = "#4682B4"), name = NULL) +
+      scale_y_continuous(limits = c(0, 5), breaks = 0:5) +
+      labs(x = "Skill", y = "Self-Reported Score (0–5)") +
+      theme_classic() +
+      theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 11),
+            axis.title = element_text(size = 12),
+            legend.position = "bottom")
+  })
+
 #######################################
 #######################################
-    
+
 }
 ```
 
@@ -247,33 +611,28 @@ You should be able to simply run the code below **as is** to see your dashboard.
 ### This code creates the dashboard ###
 #######################################
 
-# Here we set up the Header of the dashboard
 dhead = dashboardHeader(title = "Clicker Dashboard")
 
-# Here set up the sidebar which has links to two pages
 dside = dashboardSidebar(
   sidebarMenu(
     menuItem("Instructor View", tabName = "instructor", icon = icon("dashboard")),
-    menuItem("Student View", tabName = "student", icon = icon("th"))
+    menuItem("Student View",    tabName = "student",    icon = icon("th"))
   )
 )
 
-# Here we set up the body of the dashboard
 dbody = dashboardBody(
     tabItems(
-      student_dash,
-      instructor_dash
+      instructor_dash,
+      student_dash
     )
 )
 
-# Combining header, sidebar, and body
 ui = dashboardPage(dhead, dside, dbody)
 
-# Generating a local instance of your dashboard
 shinyApp(ui, server)
 ```
 
-**Question 5:** Add screenshots of your group's dahsboards below using this syntax or simply add them to the Word document after knitting:
+**Question 5:** Add screenshots of your group's dashboards below using this syntax or simply add them to the Word document after knitting:
 
 ![Dashboard Screenshot](example_dash.png)
 
@@ -282,33 +641,33 @@ shinyApp(ui, server)
 *Reflection for the student dashboard*
 
 -   What do you like about it?
-    -   [add your answer here]
+    -   We like the direct personal-vs-class comparison built into every panel. The info boxes at the top give an instant "+/-" signal so a student can gauge their standing without reading the charts at all. The quiz score line chart makes it easy to see whether performance is improving or declining over time, and the skill profile bar chart puts the student's self-assessment in context against their peers.
 -   What would you change or add to it if you had more time?
-    -   [add your answer here]
+    -   We would add a "predicted final grade" estimate based on the regression of attendance and quiz scores. We would also add a heatmap of which specific quiz sessions a student missed, and allow the student to filter by year so they could see whether they are keeping pace with prior cohorts.
 -   What was the biggest challenge you faced? How did you address it?
-    -   [add your answer here]
+    -   The biggest challenge was handling students who had missing skill survey data or no temperature responses. We addressed this with explicit `nrow == 0` / `all(is.na())` guards that render a friendly message rather than crashing the plot.
 
 *Reflection for the teacher dashboard*
 
 -   What do you like about it?
-    -   [add your answer here]
+    -   The boxplot of quiz score distributions gives an immediate picture of where the class struggled and where there was high variability. The GRAD vs. UGRAD comparison bar chart answers a question instructors often have intuitively but rarely have data to answer directly. The attendance line chart makes session-level drop-offs visible at a glance, which could prompt the instructor to investigate what happened on a particular day.
 -   What would you change or add to it if you had more time?
-    -   [add your answer here]
+    -   We would add an individual-student drill-down table so the instructor could click a quiz number in the boxplot and see which students scored below a threshold. A correlation plot between skill survey scores and final quiz averages would also help the instructor understand whether prior background predicts success.
 -   What was the biggest challenge you faced? How did you address it?
-    -   [add your answer here]
+    -   Handling duplicate student-quiz rows (multiple iClicker sessions per quiz) was tricky. We addressed it by using `distinct(STUDENT_KEY, QUIZ_NUMBER, .keep_all = TRUE)` so each student contributes one score per quiz to the distribution, matching the conceptual unit the instructor cares about.
 
 # Estimate time spent
 
 **We want to give students an estimate of how much time this homework will take. Please indicate how many hours you spent to complete this homework here.**
 
--   I spent [insert your time] hours.
+-   I spent approximately 8 hours across team members completing this project.
 
 # Generative AI usage
 
 **As stated in the course syllabus, using generative AI is allowed to help you as you complete this homework. We are interested in how it is being used and whether it is helpful for you.**
 
--   How much did you use generative AI (e.g., not at all, some, most, or all the questions) and which one did you use?
--   If you used generative AI, how did you use it and was it helpful?
+-   We used generative AI (Claude) for most of the coding portions, particularly in scaffolding the Shiny reactive logic and ggplot2 syntax.
+-   It was helpful for quickly generating boilerplate Shiny server/UI code and suggesting appropriate plot types for each data question. We still needed to tailor the variable names to match the actual dataset columns and verify that the reactive logic behaved correctly.
 
 # Submit Project
 
