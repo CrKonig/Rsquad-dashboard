@@ -65,18 +65,48 @@ required_packages <- c("tidyverse", "shiny", "shinydashboard", "scales")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if (length(new_packages)) install.packages(new_packages)
 
-library(tidyverse)   # ggplot2, dplyr, tidyr, readr, etc.
-library(shiny)       # reactive web app framework
-library(shinydashboard) # dashboard layout components
-library(scales)      # percent_format and other axis formatters
+library(tidyverse)
+library(shiny)
+library(shinydashboard)
+library(scales)
 
-# This should load the datasets:
-# experience (123 by 11) and quiz (2423 by 13)
 load("info4100.proj.dashboard.rda")
 
-# Normalize column names to uppercase for consistency
 names(quiz)       <- toupper(names(quiz))
 names(experience) <- toupper(names(experience))
+
+# ── Cornell brand colors ───────────────────────────────────────────────────
+cornell_red    <- "#B31B1B"
+cornell_navy   <- "#073949"
+cornell_blue   <- "#006699"
+cornell_green  <- "#6EB43F"
+cornell_orange <- "#F8981D"
+cornell_gray   <- "#A2998B"
+cornell_dark   <- "#222222"
+cornell_light  <- "#F7F7F7"
+
+# ── Cornell ggplot2 theme ──────────────────────────────────────────────────
+theme_cornell <- function(base_size = 12) {
+  theme_minimal(base_size = base_size) +
+    theme(
+      plot.background    = element_rect(fill = "#FFFFFF", color = NA),
+      panel.background   = element_rect(fill = "#FFFFFF", color = NA),
+      panel.grid.major   = element_line(color = "#EEEEEE", linewidth = 0.4),
+      panel.grid.minor   = element_blank(),
+      axis.line          = element_line(color = "#DDDDDD", linewidth = 0.4),
+      axis.text          = element_text(color = "#444444", size = 11),
+      axis.title         = element_text(color = cornell_dark, size = 12, face = "bold"),
+      plot.title         = element_text(color = cornell_red,  size = 14, face = "bold", margin = margin(b = 4)),
+      plot.subtitle      = element_text(color = cornell_gray, size = 10, margin = margin(b = 8)),
+      plot.caption       = element_text(color = cornell_gray, size = 9,  hjust = 0),
+      legend.position    = "bottom",
+      legend.text        = element_text(color = cornell_dark, size = 10),
+      legend.title       = element_blank(),
+      legend.key.size    = unit(0.9, "lines"),
+      strip.text         = element_text(color = cornell_red, face = "bold"),
+      plot.margin        = margin(12, 16, 8, 12)
+    )
+}
 ```
 
 # Part 1: Planning / Sketching
@@ -317,6 +347,13 @@ class_avg_clicker <- quiz %>%
   group_by(SESSION_NUMBER) %>%
   summarise(class_completion = mean(completion_rate, na.rm = TRUE), .groups = "drop")
 
+# Overall class average quiz score (deduplicated: one score per student-quiz)
+overall_class_avg_score <- quiz %>%
+  filter(!is.na(QUIZ_SCORE)) %>%
+  distinct(STUDENT_KEY, QUIZ_NUMBER, .keep_all = TRUE) %>%
+  summarise(m = mean(QUIZ_SCORE, na.rm = TRUE)) %>%
+  pull(m)
+
 # Class average skill scores (for comparison in student profile)
 skill_cols <- c("DATABASE_SCORE","SQL_SCORE","PROGRAMING_SCORE",
                 "STORED_PROC_SCORE","ETL_SCORE","DATA_VIS_SCORE","REQUIREMENT_GATHER_SCORE")
@@ -368,7 +405,7 @@ server = function(input, output, session) {
   output$inst.info2 = renderInfoBox({
     infoBox("Avg Attendance",
             paste0(round(100 * mean(quiz$ATTENDED, na.rm = TRUE)), "%"),
-            icon = icon("calendar-check"), color = "blue")
+            icon = icon("calendar"), color = "blue")
   })
 
   output$inst.info3 = renderInfoBox({
@@ -387,54 +424,64 @@ server = function(input, output, session) {
   # inst.plot1: Boxplot of quiz scores by quiz number
   output$inst.plot1 = renderPlot({
     ggplot(quiz_scores_by_quiz, aes(x = factor(QUIZ_NUMBER), y = QUIZ_SCORE)) +
-      geom_boxplot(fill = "#7B68EE", alpha = 0.7, outlier.colour = "red", outlier.alpha = 0.5) +
-      stat_summary(fun = mean, geom = "point", shape = 18, size = 3, color = "white") +
+      geom_boxplot(fill = cornell_red, color = cornell_dark,
+                   alpha = 0.15, linewidth = 0.6,
+                   outlier.colour = cornell_orange, outlier.alpha = 0.7, outlier.size = 2) +
+      stat_summary(fun = mean, geom = "point", shape = 18, size = 4, color = cornell_red) +
+      scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 5)) +
       labs(x = "Quiz Number", y = "Score (out of 20)",
-           caption = "White diamond = class mean; red points = outliers") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 12),
-            axis.title = element_text(size = 13))
+           subtitle = "Diamond = class mean  ·  Circles = outliers") +
+      theme_cornell()
   })
 
-  # inst.plot2: Attendance rate per session (line chart)
+  # inst.plot2: Attendance rate per session — area + line
   output$inst.plot2 = renderPlot({
+    avg_att <- mean(session_attendance$attend_rate)
     ggplot(session_attendance, aes(x = SESSION_NUMBER, y = attend_rate)) +
-      geom_line(color = "#4682B4", linewidth = 1.2) +
-      geom_point(color = "#4682B4", size = 2.5) +
-      geom_hline(yintercept = mean(session_attendance$attend_rate),
-                 linetype = "dashed", color = "gray50") +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1)) +
-      labs(x = "Session Number", y = "Attendance Rate",
-           caption = "Dashed line = overall average") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 12),
-            axis.title = element_text(size = 13))
+      geom_area(fill = cornell_navy, alpha = 0.08) +
+      geom_line(color = cornell_navy, linewidth = 1.3) +
+      geom_point(color = cornell_navy, size = 2.8, shape = 21,
+                 fill = "white", stroke = 1.5) +
+      geom_hline(yintercept = avg_att, linetype = "dashed",
+                 color = cornell_red, linewidth = 0.8) +
+      annotate("text", x = max(session_attendance$SESSION_NUMBER),
+               y = avg_att + 0.03,
+               label = paste0("Avg: ", round(avg_att * 100), "%"),
+               hjust = 1, color = cornell_red, size = 3.5, fontface = "bold") +
+      scale_y_continuous(labels = percent_format(accuracy = 1), limits = c(0, 1)) +
+      scale_x_continuous(breaks = pretty(session_attendance$SESSION_NUMBER)) +
+      labs(x = "Session Number", y = "Attendance Rate") +
+      theme_cornell()
   })
 
-  # inst.plot3: Grouped bar — GRAD vs UGRAD avg quiz score per quiz
+  # inst.plot3: GRAD vs UGRAD avg quiz score — lollipop chart
   output$inst.plot3 = renderPlot({
-    ggplot(grad_ugrad_scores, aes(x = factor(QUIZ_NUMBER), y = avg_score, fill = PROG)) +
-      geom_col(position = "dodge", alpha = 0.85) +
-      scale_fill_manual(values = c(GRAD = "#E87722", UGRAD = "#006EB6"),
-                        name = "Program") +
+    ggplot(grad_ugrad_scores, aes(x = factor(QUIZ_NUMBER), y = avg_score, color = PROG, group = PROG)) +
+      geom_line(linewidth = 0.7, alpha = 0.5) +
+      geom_point(size = 4) +
+      scale_color_manual(values = c(GRAD = cornell_red, UGRAD = cornell_blue),
+                         labels = c(GRAD = "Graduate", UGRAD = "Undergraduate")) +
+      scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 5)) +
       labs(x = "Quiz Number", y = "Average Score (out of 20)") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 11),
-            axis.title = element_text(size = 12),
-            legend.position = "bottom")
+      theme_cornell()
   })
 
-  # inst.plot4: Skill survey score distribution (histogram)
+  # inst.plot4: Skill survey distribution — density + rug
   output$inst.plot4 = renderPlot({
+    avg_skill <- mean(skill_dist$SKILL_SURVEY_SCORE, na.rm = TRUE)
     ggplot(skill_dist, aes(x = SKILL_SURVEY_SCORE)) +
-      geom_histogram(binwidth = 2, fill = "#6AAC3A", color = "white", alpha = 0.85) +
-      geom_vline(xintercept = mean(skill_dist$SKILL_SURVEY_SCORE, na.rm = TRUE),
-                 linetype = "dashed", color = "darkgreen", linewidth = 1) +
-      labs(x = "Skill Survey Total Score", y = "Number of Students",
-           caption = "Dashed line = class mean") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 11),
-            axis.title = element_text(size = 12))
+      geom_histogram(aes(y = after_stat(density)), binwidth = 2,
+                     fill = cornell_navy, color = "white", alpha = 0.75) +
+      geom_density(color = cornell_red, linewidth = 1.1, adjust = 1.2) +
+      geom_rug(color = cornell_gray, alpha = 0.4, length = unit(0.03, "npc")) +
+      geom_vline(xintercept = avg_skill, linetype = "dashed",
+                 color = cornell_red, linewidth = 0.9) +
+      annotate("text", x = avg_skill + 0.5, y = Inf,
+               label = paste0("Mean: ", round(avg_skill, 1)),
+               hjust = 0, vjust = 1.5, color = cornell_red,
+               size = 3.5, fontface = "bold") +
+      labs(x = "Skill Survey Total Score (0–35)", y = "Density") +
+      theme_cornell()
   })
 
   # ── STUDENT REACTIVE DATA ─────────────────────────────────────────────────
@@ -462,13 +509,13 @@ server = function(input, output, session) {
   # ── STUDENT INFO BOXES ─────────────────────────────────────────────────────
 
   output$stu.info1 = renderInfoBox({
-    my_avg  <- mean(stu_quiz()$QUIZ_SCORE, na.rm = TRUE)
-    cl_avg  <- mean(quiz$QUIZ_SCORE, na.rm = TRUE)
-    delta   <- round(my_avg - cl_avg, 1)
-    sign_str <- ifelse(delta >= 0, paste0("+", delta), as.character(delta))
+    my_avg   <- mean(stu_quiz()$QUIZ_SCORE, na.rm = TRUE)
+    delta    <- round(my_avg - overall_class_avg_score, 1)
+    sign_str <- if (delta >= 0) paste0("+", delta) else as.character(delta)
+    box_col  <- if (delta >= 0) "green" else "red"
     infoBox("My Avg Quiz Score",
             paste0(round(my_avg, 1), " / 20  (", sign_str, " vs class)"),
-            icon = icon("star"), color = ifelse(delta >= 0, "green", "red"))
+            icon = icon("star"), color = box_col)
   })
 
   output$stu.info2 = renderInfoBox({
@@ -483,7 +530,7 @@ server = function(input, output, session) {
 
   # ── STUDENT PLOTS ──────────────────────────────────────────────────────────
 
-  # stu.plot1: Student quiz scores vs class average per quiz (line)
+  # stu.plot1: Student quiz scores vs class average — connected line with ribbon
   output$stu.plot1 = renderPlot({
     stu_data <- stu_quiz() %>%
       select(QUIZ_NUMBER, QUIZ_SCORE) %>%
@@ -493,44 +540,46 @@ server = function(input, output, session) {
       left_join(stu_data, by = "QUIZ_NUMBER")
 
     ggplot(plot_data, aes(x = QUIZ_NUMBER)) +
-      geom_line(aes(y = class_avg, color = "Class Average"), linewidth = 1.1, linetype = "dashed") +
-      geom_line(aes(y = my_score, color = "My Score"), linewidth = 1.3, na.rm = TRUE) +
-      geom_point(aes(y = my_score, color = "My Score"), size = 3, na.rm = TRUE) +
+      geom_ribbon(aes(ymin = pmin(my_score, class_avg),
+                      ymax = pmax(my_score, class_avg)),
+                  fill = cornell_red, alpha = 0.08, na.rm = TRUE) +
+      geom_line(aes(y = class_avg, color = "Class Average"),
+                linewidth = 1.0, linetype = "dashed") +
+      geom_line(aes(y = my_score, color = "My Score"),
+                linewidth = 1.4, na.rm = TRUE) +
       geom_point(aes(y = class_avg, color = "Class Average"), size = 2.5) +
-      scale_color_manual(values = c("My Score" = "#E87722", "Class Average" = "#4682B4"),
-                         name = NULL) +
+      geom_point(aes(y = my_score, color = "My Score"),
+                 size = 3.5, shape = 21, fill = "white", stroke = 2, na.rm = TRUE) +
+      scale_color_manual(values = c("My Score" = cornell_red,
+                                    "Class Average" = cornell_gray)) +
       scale_x_continuous(breaks = 1:10) +
+      scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, 5)) +
       labs(x = "Quiz Number", y = "Score (out of 20)") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 12),
-            axis.title = element_text(size = 13),
-            legend.position = "bottom")
+      theme_cornell()
   })
 
-  # stu.plot2: Clicker completion rate per session vs class avg (bar + line)
+  # stu.plot2: Clicker completion rate per session — bar + class avg line
   output$stu.plot2 = renderPlot({
     stu_comp <- stu_sessions() %>%
-      mutate(completion_rate = ifelse(TOTAL_POSSIBLE_CLICKER > 0,
-                                      TOTAL_COMPLETED_CLICKER / TOTAL_POSSIBLE_CLICKER,
-                                      NA_real_)) %>%
+      mutate(completion_rate = TOTAL_COMPLETED_CLICKER / TOTAL_POSSIBLE_CLICKER) %>%
       select(SESSION_NUMBER, completion_rate) %>%
-      left_join(class_avg_clicker, by = "SESSION_NUMBER")
+      left_join(class_avg_clicker, by = "SESSION_NUMBER") %>%
+      mutate(above_avg = completion_rate >= class_completion)
 
     ggplot(stu_comp, aes(x = SESSION_NUMBER)) +
-      geom_col(aes(y = completion_rate, fill = "My Rate"), alpha = 0.75, na.rm = TRUE) +
+      geom_col(aes(y = completion_rate,
+                   fill = above_avg), alpha = 0.8, na.rm = TRUE) +
       geom_line(aes(y = class_completion, color = "Class Avg"),
-                linewidth = 1.2, linetype = "dashed") +
-      scale_fill_manual(values = c("My Rate" = "#E87722"), name = NULL) +
-      scale_color_manual(values = c("Class Avg" = "#4682B4"), name = NULL) +
-      scale_y_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1.05)) +
+                linewidth = 1.1, linetype = "dashed") +
+      scale_fill_manual(values = c("TRUE" = cornell_green, "FALSE" = cornell_red),
+                        labels = c("TRUE" = "At/above avg", "FALSE" = "Below avg")) +
+      scale_color_manual(values = c("Class Avg" = cornell_dark)) +
+      scale_y_continuous(labels = percent_format(accuracy = 1), limits = c(0, 1.05)) +
       labs(x = "Session Number", y = "Clicker Completion Rate") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 11),
-            axis.title = element_text(size = 12),
-            legend.position = "bottom")
+      theme_cornell()
   })
 
-  # stu.plot3: Student temperature responses over sessions
+  # stu.plot3: Temperature / engagement over sessions
   output$stu.plot3 = renderPlot({
     temp_data <- stu_sessions() %>%
       filter(!is.na(AVG_T_CLICKER), COMPLETED_T_CLICKER > 0)
@@ -538,25 +587,29 @@ server = function(input, output, session) {
     if (nrow(temp_data) == 0) {
       return(
         ggplot() +
-          annotate("text", x = 0.5, y = 0.5, label = "No temperature data for this student.",
-                   size = 5) +
+          annotate("text", x = 0.5, y = 0.5,
+                   label = "No temperature data for this student.",
+                   color = cornell_gray, size = 5) +
           theme_void()
       )
     }
 
     ggplot(temp_data, aes(x = SESSION_NUMBER, y = AVG_T_CLICKER)) +
-      geom_line(color = "#9B59B6", linewidth = 1.2) +
-      geom_point(color = "#9B59B6", size = 3) +
-      geom_hline(yintercept = 3, linetype = "dashed", color = "gray50") +
+      geom_area(fill = cornell_orange, alpha = 0.10) +
+      geom_line(color = cornell_orange, linewidth = 1.3) +
+      geom_point(color = cornell_orange, size = 3,
+                 shape = 21, fill = "white", stroke = 1.8) +
+      geom_hline(yintercept = 3, linetype = "dashed",
+                 color = cornell_gray, linewidth = 0.8) +
+      annotate("text", x = min(temp_data$SESSION_NUMBER),
+               y = 3.15, label = "Neutral (3)", hjust = 0,
+               color = cornell_gray, size = 3.2) +
       scale_y_continuous(limits = c(0, 5), breaks = 0:5) +
-      labs(x = "Session Number", y = "Avg Temperature Response (0–5)",
-           caption = "Dashed line = neutral midpoint (3)") +
-      theme_classic() +
-      theme(axis.text = element_text(size = 11),
-            axis.title = element_text(size = 12))
+      labs(x = "Session Number", y = "Avg Engagement Response (0–5)") +
+      theme_cornell()
   })
 
-  # stu.plot4: Student skill profile vs class average (grouped bar)
+  # stu.plot4: Skill profile — dot plot vs class avg
   output$stu.plot4 = renderPlot({
     exp_row <- stu_exp()
 
@@ -564,7 +617,8 @@ server = function(input, output, session) {
       return(
         ggplot() +
           annotate("text", x = 0.5, y = 0.5,
-                   label = "No skill survey data for this student.", size = 5) +
+                   label = "No skill survey data for this student.",
+                   color = cornell_gray, size = 5) +
           theme_void()
       )
     }
@@ -573,27 +627,28 @@ server = function(input, output, session) {
       select(all_of(skill_cols)) %>%
       pivot_longer(everything(), names_to = "skill", values_to = "my_score") %>%
       mutate(skill = recode(skill,
-        DATABASE_SCORE = "Database",
-        SQL_SCORE = "SQL",
-        PROGRAMING_SCORE = "Programming",
-        STORED_PROC_SCORE = "Stored Proc",
-        ETL_SCORE = "ETL",
-        DATA_VIS_SCORE = "Data Vis",
+        DATABASE_SCORE        = "Database",
+        SQL_SCORE             = "SQL",
+        PROGRAMING_SCORE      = "Programming",
+        STORED_PROC_SCORE     = "Stored Proc",
+        ETL_SCORE             = "ETL",
+        DATA_VIS_SCORE        = "Data Vis",
         REQUIREMENT_GATHER_SCORE = "Req. Gathering"
       )) %>%
-      left_join(class_avg_skills, by = "skill") %>%
-      pivot_longer(c(my_score, class_avg), names_to = "who", values_to = "score") %>%
-      mutate(who = recode(who, my_score = "Me", class_avg = "Class Avg"))
+      left_join(class_avg_skills, by = "skill")
 
-    ggplot(stu_skills, aes(x = skill, y = score, fill = who)) +
-      geom_col(position = "dodge", alpha = 0.85, na.rm = TRUE) +
-      scale_fill_manual(values = c("Me" = "#E87722", "Class Avg" = "#4682B4"), name = NULL) +
-      scale_y_continuous(limits = c(0, 5), breaks = 0:5) +
-      labs(x = "Skill", y = "Self-Reported Score (0–5)") +
-      theme_classic() +
-      theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 11),
-            axis.title = element_text(size = 12),
-            legend.position = "bottom")
+    ggplot(stu_skills, aes(y = reorder(skill, my_score))) +
+      geom_segment(aes(x = class_avg, xend = my_score,
+                       yend = reorder(skill, my_score)),
+                   color = "#DDDDDD", linewidth = 2) +
+      geom_point(aes(x = class_avg, color = "Class Avg"), size = 4, na.rm = TRUE) +
+      geom_point(aes(x = my_score, color = "Me"), size = 5, na.rm = TRUE) +
+      scale_color_manual(values = c("Me" = cornell_red, "Class Avg" = cornell_gray)) +
+      scale_x_continuous(limits = c(0, 5), breaks = 0:5) +
+      labs(x = "Self-Reported Score (0–5)", y = NULL) +
+      theme_cornell() +
+      theme(panel.grid.major.y = element_blank(),
+            panel.grid.major.x = element_line(color = "#EEEEEE"))
   })
 
 #######################################
@@ -613,7 +668,135 @@ You should be able to simply run the code below **as is** to see your dashboard.
 ### This code creates the dashboard ###
 #######################################
 
-dhead = dashboardHeader(title = "Clicker Dashboard")
+cornell_css <- tags$head(
+
+  # Google Fonts: Spectral (serif headings) + Source Sans 3 (body)
+  tags$link(rel = "stylesheet",
+    href = "https://fonts.googleapis.com/css2?family=Spectral:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap"),
+
+  tags$style(HTML("
+
+    /* ── Base fonts ──────────────────────────────── */
+    body, .content-wrapper, .main-sidebar {
+      font-family: 'Source Sans 3', Arial, sans-serif;
+    }
+    h1, h2, h3, h4, .box-title, .info-box-text {
+      font-family: 'Spectral', Georgia, serif;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    .skin-red .main-header .navbar,
+    .skin-red .main-header .logo {
+      background-color: #B31B1B !important;
+      border-bottom: 3px solid #8a1414 !important;
+    }
+    .skin-red .main-header .logo {
+      font-family: 'Spectral', Georgia, serif !important;
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.3px;
+    }
+    .skin-red .main-header .navbar .sidebar-toggle:hover {
+      background-color: #8a1414 !important;
+    }
+
+    /* ── Sidebar ─────────────────────────────────── */
+    .skin-red .main-sidebar,
+    .skin-red .left-side {
+      background-color: #073949 !important;
+    }
+    .skin-red .sidebar-menu > li > a {
+      color: #c8d8df !important;
+      font-size: 14px;
+      font-weight: 400;
+      border-left: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    .skin-red .sidebar-menu > li.active > a,
+    .skin-red .sidebar-menu > li > a:hover {
+      background-color: rgba(255,255,255,0.08) !important;
+      border-left: 3px solid #B31B1B !important;
+      color: #ffffff !important;
+    }
+    .skin-red .sidebar-menu > li > a .fa {
+      color: #A2998B !important;
+    }
+    .skin-red .sidebar-menu > li.active > a .fa {
+      color: #B31B1B !important;
+    }
+
+    /* ── Content area ────────────────────────────── */
+    .content-wrapper, .right-side {
+      background-color: #F7F7F7 !important;
+    }
+
+    /* ── Dashboard boxes ─────────────────────────── */
+    .box {
+      border-radius: 4px !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
+      border-top: 3px solid #B31B1B !important;
+    }
+    .box .box-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #073949;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .box-header {
+      border-bottom: 1px solid #f0f0f0;
+      padding: 10px 15px;
+    }
+
+    /* ── Info boxes ──────────────────────────────── */
+    .info-box {
+      border-radius: 4px !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.10) !important;
+      min-height: 80px;
+    }
+    .info-box-text {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .info-box-number {
+      font-family: 'Spectral', Georgia, serif;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    /* ── Select input ────────────────────────────── */
+    .selectize-input {
+      border: 1px solid #ddd !important;
+      border-radius: 3px !important;
+      font-family: 'Source Sans 3', Arial, sans-serif;
+      font-size: 13px;
+    }
+    .selectize-input.focus {
+      border-color: #B31B1B !important;
+      box-shadow: 0 0 0 2px rgba(179,27,27,0.15) !important;
+    }
+
+    /* ── Page heading ────────────────────────────── */
+    .content-header h1 {
+      font-family: 'Spectral', Georgia, serif;
+      font-weight: 700;
+      color: #073949;
+    }
+    h2 {
+      font-family: 'Spectral', Georgia, serif;
+      color: #073949;
+      font-size: 22px;
+      border-bottom: 2px solid #B31B1B;
+      padding-bottom: 6px;
+      margin-bottom: 16px;
+    }
+
+  "))
+)
+
+dhead = dashboardHeader(title = "Cornell BI Clicker Dashboard")
 
 dside = dashboardSidebar(
   sidebarMenu(
@@ -623,13 +806,14 @@ dside = dashboardSidebar(
 )
 
 dbody = dashboardBody(
-    tabItems(
-      instructor_dash,
-      student_dash
-    )
+  cornell_css,
+  tabItems(
+    instructor_dash,
+    student_dash
+  )
 )
 
-ui = dashboardPage(dhead, dside, dbody)
+ui = dashboardPage(dhead, dside, dbody, skin = "red")
 
 shinyApp(ui, server)
 ```
