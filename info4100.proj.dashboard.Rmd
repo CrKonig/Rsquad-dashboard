@@ -1,6 +1,6 @@
 ---
 title: "Dashboards for Clicker Data"
-author: '[[Maryam Albakry (ma878), Rafael Barrios (reb368), Abbie Goldstein (acg229), Tianyi Wang (tw324), Emma Benyaminy (esb276)]]'
+author: '[[Maryam Albakry (ma878), Rafael Barrios (reb368), Abbie Goldstein (acg229), Tianyi Wang (tw324), Emma Benyaminy (esb276), Melissa Amoah (ma2335)]]'
 subtitle: INFO 4100 Learning Analytics
 output:
   word_document: default
